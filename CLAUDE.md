@@ -54,11 +54,23 @@ This file should be updated after each chat/development session to track progres
 - ✅ Input management (keyboard, mouse, gamepad support)
 - ✅ Player character with movement and rotation
 - ✅ Dodge roll mechanic with cooldown
-- ✅ Combat system with weapon attacks
+- ✅ Advanced combat system:
+  - ✅ Combo attack system with timing windows
+  - ✅ Weapon weight and swing momentum
+  - ✅ Critical hits with damage variation
+  - ✅ Enemy knockback and hitstun
+  - ✅ Screen shake and hit pause effects
+  - ✅ Damage numbers with visual feedback
+  - ✅ Hit particles and effects
+  - ✅ Perfect dodge mechanics with slow motion
 - ✅ Attack hitboxes with visual feedback
-- ✅ Enemy AI with states (Idle, Chase, Attack)
+- ✅ Enemy AI with states (Idle, Chase, Attack, Hurt)
 - ✅ Health and damage systems
 - ✅ Enemy spawning and targeting
+- ✅ UI system:
+  - ✅ Combo counter display
+  - ✅ Player health bar
+  - ✅ Pixelated damage numbers
 
 ## Git Workflow
 - Always pull before starting work: `git pull`
@@ -136,10 +148,19 @@ git push
 
 ## Development Notes
 - Using placeholder colored squares for sprites currently
-- Attack visualization shows swing arc
-- Enemy AI uses simple state machine
-- Camera follows player with lerp for smoothness
+- Attack visualization shows swing arc with weapon weight effects
+- Combat features:
+  - 3-hit combo system for swords, 4-hit for daggers
+  - Different weapon types have unique combo patterns
+  - Critical hits show golden damage numbers
+  - Perfect dodge window triggers slow motion
+  - Hit particles spawn on impact
+  - Enemies flash red when hurt
+  - Screen shake scales with damage
+- Enemy AI uses state machine with hurt state for knockback
+- Camera follows player with lerp and screen shake offset
 - All entity collision uses Rectangle bounds
+- UI rendered with pixel art style numbers
 
 ## Known Issues
 - Build may fail due to MonoGame content pipeline on Linux (can ignore for now)

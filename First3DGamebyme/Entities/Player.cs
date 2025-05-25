@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using First3DGamebyme.Engine.Input;
 using First3DGamebyme.Systems.Combat;
+using System;
 
 namespace First3DGamebyme.Entities;
 
@@ -20,13 +21,19 @@ public class Player : Entity
     private Weapon _currentWeapon;
     private Attack _currentAttack;
     private float _attackCooldownTimer = 0f;
+    private CombatSystem _combatSystem;
+    private float _perfectDodgeWindow = 0.15f;
+    private bool _isPerfectDodgeActive = false;
+    private float _perfectDodgeSlowMotion = 0.3f;
     
     public float Health { get; private set; }
     public float MaxHealth { get; private set; }
-    public bool CanAttack => !_isDodging && _attackCooldownTimer <= 0;
+    public bool CanAttack => !_isDodging && _attackCooldownTimer <= 0 && !_combatSystem.IsHitPaused;
     public bool CanDodge => !_isDodging && _dodgeCooldownTimer <= 0;
     public Weapon CurrentWeapon => _currentWeapon;
     public Attack CurrentAttack => _currentAttack;
+    public CombatSystem CombatSystem => _combatSystem;
+    public bool IsPerfectDodgeActive => _isPerfectDodgeActive;
     
     public Player(Vector2 position) : base(position)
     {
@@ -35,6 +42,7 @@ public class Player : Entity
         
         _currentWeapon = new Weapon("Basic Sword", WeaponType.Sword, 20f, 2f, 80f);
         _currentAttack = new Attack();
+        _combatSystem = new CombatSystem();
     }
     
     public void LoadContent(GraphicsDevice graphicsDevice)
@@ -42,7 +50,7 @@ public class Player : Entity
         _texture = new Texture2D(graphicsDevice, 32, 32);
         Color[] data = new Color[32 * 32];
         for (int i = 0; i < data.Length; i++)
-            data[i] = Color.Red;
+            data[i] = Color.White;
         _texture.SetData(data);
         
         _origin = new Vector2(_texture.Width / 2f, _texture.Height / 2f);
@@ -50,7 +58,7 @@ public class Player : Entity
     
     public void HandleInput(InputManager input, GameTime gameTime, Vector2 worldMousePosition)
     {
-        if (_isDodging) return;
+        if (_isDodging || _combatSystem.IsHitPaused) return;
         
         Vector2 movement = input.GetMovementVector();
         
@@ -79,12 +87,22 @@ public class Player : Entity
     {
         float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
         
+        if (_combatSystem.IsHitPaused)
+        {
+            deltaTime *= 0.1f;
+        }
+        else if (_isPerfectDodgeActive)
+        {
+            deltaTime *= _perfectDodgeSlowMotion;
+        }
+        
         if (_isDodging)
         {
             _dodgeTimer -= deltaTime;
             if (_dodgeTimer <= 0)
             {
                 _isDodging = false;
+                _isPerfectDodgeActive = false;
                 Velocity = Vector2.Zero;
             }
             else
@@ -100,6 +118,7 @@ public class Player : Entity
             _attackCooldownTimer -= deltaTime;
             
         _currentAttack.Update(deltaTime, Position);
+        _combatSystem.Update(deltaTime);
         
         base.Update(gameTime);
     }
@@ -113,11 +132,21 @@ public class Player : Entity
         _dodgeDirection.Normalize();
     }
     
-    public void TakeDamage(float damage)
+    public void TakeDamage(float damage, Vector2 attackerPosition)
     {
-        if (_isDodging) return;
+        if (_isDodging)
+        {
+            if (_dodgeTimer >= _dodgeDuration - _perfectDodgeWindow)
+            {
+                _isPerfectDodgeActive = true;
+                _combatSystem.TriggerScreenShake(5f, 0.2f);
+            }
+            return;
+        }
         
         Health -= damage;
+        _combatSystem.SpawnDamageNumber(Position, damage, false);
+        
         if (Health <= 0)
         {
             Health = 0;
@@ -135,13 +164,20 @@ public class Player : Entity
         Vector2 direction = mousePosition - Position;
         float attackDirection = (float)System.Math.Atan2(direction.Y, direction.X);
         
-        _currentAttack.Start(Position, attackDirection, _currentWeapon);
-        _attackCooldownTimer = 1f / _currentWeapon.AttackSpeed;
+        var combo = _combatSystem.GetNextComboAttack(_currentWeapon.Type, _currentAttack.IsActive);
+        _currentAttack.Start(Position, attackDirection, _currentWeapon, combo);
+        _attackCooldownTimer = (1f / _currentWeapon.AttackSpeed) / combo.SpeedMultiplier;
     }
     
     public override void Draw(SpriteBatch spriteBatch)
     {
-        base.Draw(spriteBatch);
+        Color tint = Color.White;
+        if (_isPerfectDodgeActive)
+            tint = Color.Gold;
+        else if (_isDodging)
+            tint = new Color(150, 150, 150);
+        
+        spriteBatch.Draw(_texture, Position, null, tint, Rotation, _origin, 1f, SpriteEffects.None, 0f);
         
         if (_currentAttack.IsActive)
         {

@@ -27,10 +27,14 @@ public abstract class Enemy : Entity
     protected float _attackTimer;
     protected float _damage;
     protected Random _random;
+    protected float _hitStunTimer;
+    protected float _knockbackTimer;
+    protected Vector2 _knockbackVelocity;
     
     public float Health => _health;
     public float MaxHealth => _maxHealth;
     public EnemyState State => _state;
+    public bool IsStunned => _hitStunTimer > 0;
     
     public Enemy(Vector2 position, float health, float moveSpeed) : base(position)
     {
@@ -59,8 +63,32 @@ public abstract class Enemy : Entity
         if (_attackTimer > 0)
             _attackTimer -= deltaTime;
         
-        UpdateState(deltaTime);
-        UpdateBehavior(deltaTime);
+        if (_hitStunTimer > 0)
+        {
+            _hitStunTimer -= deltaTime;
+            if (_hitStunTimer <= 0)
+                _state = EnemyState.Idle;
+        }
+        
+        if (_knockbackTimer > 0)
+        {
+            _knockbackTimer -= deltaTime;
+            _knockbackVelocity *= 0.9f;
+            if (_knockbackTimer <= 0)
+            {
+                _knockbackVelocity = Vector2.Zero;
+            }
+        }
+        
+        if (!IsStunned)
+        {
+            UpdateState(deltaTime);
+            UpdateBehavior(deltaTime);
+        }
+        else
+        {
+            Velocity = _knockbackVelocity;
+        }
         
         base.Update(gameTime);
     }
@@ -152,6 +180,10 @@ public abstract class Enemy : Entity
                     _attackTimer = _attackCooldown;
                 }
                 break;
+                
+            case EnemyState.Hurt:
+                Velocity = _knockbackVelocity;
+                break;
         }
     }
     
@@ -159,27 +191,45 @@ public abstract class Enemy : Entity
     {
         if (_target is Player player)
         {
-            player.TakeDamage(_damage);
+            player.TakeDamage(_damage, Position);
         }
     }
     
-    public virtual void TakeDamage(float damage)
+    public virtual void TakeDamage(float damage, Vector2 attackPosition, float knockbackForce, float hitStunDuration, bool isCritical)
     {
         if (_state == EnemyState.Dead) return;
         
         _health -= damage;
         _state = EnemyState.Hurt;
+        _hitStunTimer = hitStunDuration;
+        
+        Vector2 knockbackDirection = Position - attackPosition;
+        if (knockbackDirection.LengthSquared() > 0)
+            knockbackDirection.Normalize();
+        else
+            knockbackDirection = new Vector2(_random.Next(-1, 2), _random.Next(-1, 2));
+        
+        _knockbackVelocity = knockbackDirection * knockbackForce;
+        _knockbackTimer = 0.3f;
         
         if (_health <= 0)
         {
             _health = 0;
             _state = EnemyState.Dead;
+            _knockbackVelocity *= 2f;
         }
     }
     
     public override void Draw(SpriteBatch spriteBatch)
     {
-        base.Draw(spriteBatch);
+        Color tint = Color.White;
+        if (_state == EnemyState.Hurt && _hitStunTimer > 0)
+        {
+            float flash = (float)Math.Sin(_hitStunTimer * 20) * 0.5f + 0.5f;
+            tint = Color.Lerp(Color.White, Color.Red, flash);
+        }
+        
+        spriteBatch.Draw(_texture, Position, null, tint, Rotation, _origin, 1f, SpriteEffects.None, 0f);
         
         if (IsActive && _health < _maxHealth)
         {

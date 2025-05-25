@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
+using System;
 
 namespace First3DGamebyme.Systems.Combat;
 
@@ -22,6 +23,10 @@ public class Weapon
     public float Range { get; set; }
     public float KnockbackForce { get; set; }
     public float SwingAngle { get; set; }
+    public float Weight { get; set; }
+    public float CriticalChance { get; set; }
+    public float CriticalMultiplier { get; set; }
+    public float HitStunDuration { get; set; }
     
     public Weapon(string name, WeaponType type, float damage, float attackSpeed, float range)
     {
@@ -32,6 +37,36 @@ public class Weapon
         Range = range;
         KnockbackForce = 150f;
         SwingAngle = MathHelper.PiOver2;
+        Weight = GetDefaultWeight(type);
+        CriticalChance = 0.1f;
+        CriticalMultiplier = 1.5f;
+        HitStunDuration = GetDefaultHitStun(type);
+    }
+    
+    private float GetDefaultWeight(WeaponType type)
+    {
+        switch (type)
+        {
+            case WeaponType.Dagger: return 0.5f;
+            case WeaponType.Sword: return 1.0f;
+            case WeaponType.Axe: return 1.5f;
+            case WeaponType.Hammer: return 2.0f;
+            case WeaponType.Staff: return 0.8f;
+            default: return 1.0f;
+        }
+    }
+    
+    private float GetDefaultHitStun(WeaponType type)
+    {
+        switch (type)
+        {
+            case WeaponType.Dagger: return 0.1f;
+            case WeaponType.Sword: return 0.2f;
+            case WeaponType.Axe: return 0.3f;
+            case WeaponType.Hammer: return 0.4f;
+            case WeaponType.Staff: return 0.15f;
+            default: return 0.2f;
+        }
     }
 }
 
@@ -46,23 +81,37 @@ public class Attack
     public float Timer { get; set; }
     public bool IsActive { get; set; }
     public HashSet<object> HitTargets { get; private set; }
+    public float KnockbackForce { get; set; }
+    public float HitStunDuration { get; set; }
+    public bool IsCritical { get; set; }
+    public int ComboIndex { get; set; }
+    public float Weight { get; set; }
     
     public Attack()
     {
         HitTargets = new HashSet<object>();
     }
     
-    public void Start(Vector2 position, float direction, Weapon weapon)
+    public void Start(Vector2 position, float direction, Weapon weapon, ComboAttack combo)
     {
         Position = position;
         Direction = direction;
-        Range = weapon.Range;
-        Damage = weapon.Damage;
+        Range = weapon.Range * combo.RangeMultiplier;
+        Damage = weapon.Damage * combo.DamageMultiplier;
         SwingAngle = weapon.SwingAngle;
-        Duration = 1f / weapon.AttackSpeed;
+        Duration = (1f / weapon.AttackSpeed) / combo.SpeedMultiplier;
         Timer = Duration;
         IsActive = true;
         HitTargets.Clear();
+        KnockbackForce = weapon.KnockbackForce * combo.KnockbackMultiplier;
+        HitStunDuration = weapon.HitStunDuration;
+        Weight = weapon.Weight;
+        ComboIndex = combo.ComboIndex;
+        
+        Random rand = new Random();
+        IsCritical = rand.NextDouble() < weapon.CriticalChance;
+        if (IsCritical)
+            Damage *= weapon.CriticalMultiplier;
     }
     
     public void Update(float deltaTime, Vector2 position)
@@ -98,15 +147,19 @@ public class Attack
         if (!IsActive) return;
         
         float progress = 1f - (Timer / Duration);
-        float currentAngle = Direction - SwingAngle / 2f + SwingAngle * progress;
+        float weightOffset = Weight * 0.1f * (float)System.Math.Sin(progress * MathHelper.Pi);
+        float currentAngle = Direction - SwingAngle / 2f + SwingAngle * progress + weightOffset;
         
         Texture2D pixel = new Texture2D(graphicsDevice, 1, 1);
         pixel.SetData(new[] { Color.White });
         
+        Color attackColor = IsCritical ? new Color(255, 215, 0, 150) : new Color(255, 255, 255, 100);
+        float thickness = IsCritical ? 5f : 3f;
+        
         int segments = 20;
         for (int i = 0; i < segments; i++)
         {
-            float angle = Direction - SwingAngle / 2f + (SwingAngle * i / segments);
+            float angle = Direction - SwingAngle / 2f + (SwingAngle * i / segments) + weightOffset;
             if (System.Math.Abs(angle - currentAngle) < SwingAngle / segments)
             {
                 Vector2 endPoint = Position + new Vector2(
@@ -114,7 +167,7 @@ public class Attack
                     (float)System.Math.Sin(angle) * Range
                 );
                 
-                DrawLine(spriteBatch, pixel, Position, endPoint, new Color(255, 255, 255, 100), 3f);
+                DrawLine(spriteBatch, pixel, Position, endPoint, attackColor, thickness);
             }
         }
         

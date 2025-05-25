@@ -5,6 +5,7 @@ using First3DGamebyme.Engine.Camera;
 using First3DGamebyme.Engine.Input;
 using First3DGamebyme.Entities;
 using First3DGamebyme.Systems.Combat;
+using First3DGamebyme.UI;
 using System.Collections.Generic;
 using System;
 
@@ -25,6 +26,7 @@ public class Game1 : Game
     private const int GAME_HEIGHT = 1080;
     
     private Random _random = new Random();
+    private GameOverScreen _gameOverScreen;
 
     public Game1()
     {
@@ -43,6 +45,7 @@ public class Game1 : Game
         _inputManager = new InputManager();
         _player = new Player(new Vector2(GAME_WIDTH / 2, GAME_HEIGHT / 2));
         _enemies = new List<Enemy>();
+        _gameOverScreen = new GameOverScreen();
 
         base.Initialize();
     }
@@ -78,13 +81,32 @@ public class Game1 : Game
     {
         _inputManager.Update();
         
+        if (_gameOverScreen.IsActive)
+        {
+            _gameOverScreen.Update(gameTime);
+            
+            if (_gameOverScreen.ShouldRestart)
+            {
+                RestartGame();
+            }
+            return;
+        }
+        
         if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || 
             _inputManager.IsKeyPressed(Keys.Escape))
             Exit();
         
         var worldMouse = _camera.ScreenToWorld(_inputManager.MousePosition);
-        _player.HandleInput(_inputManager, gameTime, worldMouse);
-        _player.Update(gameTime);
+        
+        if (_player.IsActive)
+        {
+            _player.HandleInput(_inputManager, gameTime, worldMouse);
+            _player.Update(gameTime);
+        }
+        else if (!_gameOverScreen.IsActive)
+        {
+            _gameOverScreen.Show();
+        }
         
         foreach (var enemy in _enemies)
         {
@@ -190,6 +212,8 @@ public class Game1 : Game
         );
         
         DrawUI();
+        
+        _gameOverScreen.Draw(_spriteBatch, GraphicsDevice, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height);
         
         _spriteBatch.End();
 
@@ -356,5 +380,30 @@ public class Game1 : Game
         
         string healthText = $"{_player.Health:0} / {_player.MaxHealth:0}";
         DrawText(_spriteBatch, pixel, healthText, position + new Vector2(barWidth / 2 - healthText.Length * 3, -25), Color.White, 2f);
+    }
+    
+    private void RestartGame()
+    {
+        _gameOverScreen.Hide();
+        
+        // Reset player
+        _player = new Player(new Vector2(GAME_WIDTH / 2, GAME_HEIGHT / 2));
+        _player.LoadContent(GraphicsDevice);
+        
+        // Reset enemies
+        _enemies.Clear();
+        for (int i = 0; i < 5; i++)
+        {
+            var enemy = new BasicEnemy(new Vector2(
+                GAME_WIDTH / 2 + (i - 2) * 200,
+                GAME_HEIGHT / 2 + 300
+            ));
+            enemy.LoadContent(GraphicsDevice);
+            enemy.SetTarget(_player);
+            _enemies.Add(enemy);
+        }
+        
+        // Reset camera
+        _camera = new Camera2D(GraphicsDevice.Viewport);
     }
 }

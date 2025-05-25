@@ -156,18 +156,98 @@ public class Attack
         Color attackColor = IsCritical ? new Color(255, 215, 0, 150) : new Color(255, 255, 255, 100);
         float thickness = IsCritical ? 5f : 3f;
         
-        int segments = 20;
+        // Draw main attack arc
+        int segments = 30;
         for (int i = 0; i < segments; i++)
         {
             float angle = Direction - SwingAngle / 2f + (SwingAngle * i / segments) + weightOffset;
-            if (System.Math.Abs(angle - currentAngle) < SwingAngle / segments)
+            float angleDiff = System.Math.Abs(angle - currentAngle);
+            
+            if (angleDiff < SwingAngle / segments * 3)
             {
+                float intensity = 1f - (angleDiff / (SwingAngle / segments * 3));
                 Vector2 endPoint = Position + new Vector2(
                     (float)System.Math.Cos(angle) * Range,
                     (float)System.Math.Sin(angle) * Range
                 );
                 
-                DrawLine(spriteBatch, pixel, Position, endPoint, attackColor, thickness);
+                Color lineColor = attackColor;
+                lineColor.A = (byte)(lineColor.A * intensity);
+                
+                DrawLine(spriteBatch, pixel, Position, endPoint, lineColor, thickness * (0.5f + intensity * 0.5f));
+                
+                // Add trail effects
+                if (intensity > 0.7f)
+                {
+                    for (int j = 1; j <= 3; j++)
+                    {
+                        float trailProgress = progress - j * 0.05f;
+                        if (trailProgress > 0)
+                        {
+                            float trailAngle = Direction - SwingAngle / 2f + SwingAngle * trailProgress + weightOffset;
+                            Vector2 trailEnd = Position + new Vector2(
+                                (float)System.Math.Cos(trailAngle) * (Range * (1f - j * 0.1f)),
+                                (float)System.Math.Sin(trailAngle) * (Range * (1f - j * 0.1f))
+                            );
+                            Color trailColor = attackColor;
+                            trailColor.A = (byte)(trailColor.A * 0.3f / j);
+                            DrawLine(spriteBatch, pixel, Position, trailEnd, trailColor, thickness * 0.5f);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Draw energy particles along the swing
+        if (ComboIndex >= 2 || IsCritical)
+        {
+            Random rand = new Random((int)(Timer * 1000));
+            for (int i = 0; i < 5; i++)
+            {
+                float particleAngle = currentAngle + (float)(rand.NextDouble() - 0.5) * 0.3f;
+                float particleDistance = Range * (0.7f + (float)rand.NextDouble() * 0.3f);
+                Vector2 particlePos = Position + new Vector2(
+                    (float)System.Math.Cos(particleAngle) * particleDistance,
+                    (float)System.Math.Sin(particleAngle) * particleDistance
+                );
+                
+                Color particleColor = IsCritical ? Color.Gold : Color.Cyan;
+                particleColor.A = (byte)(200 * progress);
+                
+                spriteBatch.Draw(pixel, particlePos, null, particleColor, 0f, new Vector2(0.5f, 0.5f), 4f, SpriteEffects.None, 0f);
+            }
+        }
+        
+        // Draw impact wave for final combo hit
+        if (ComboIndex >= 2 && progress > 0.8f)
+        {
+            float waveRadius = Range * 0.3f * (progress - 0.8f) * 5f;
+            int waveSegments = 20;
+            for (int i = 0; i < waveSegments; i++)
+            {
+                float angle1 = (float)(i * 2 * Math.PI / waveSegments);
+                float angle2 = (float)((i + 1) * 2 * Math.PI / waveSegments);
+                
+                Vector2 point1 = Position + new Vector2(
+                    (float)System.Math.Cos(currentAngle) * Range * 0.8f,
+                    (float)System.Math.Sin(currentAngle) * Range * 0.8f
+                ) + new Vector2(
+                    (float)System.Math.Cos(angle1) * waveRadius,
+                    (float)System.Math.Sin(angle1) * waveRadius
+                );
+                
+                Vector2 point2 = Position + new Vector2(
+                    (float)System.Math.Cos(currentAngle) * Range * 0.8f,
+                    (float)System.Math.Sin(currentAngle) * Range * 0.8f
+                ) + new Vector2(
+                    (float)System.Math.Cos(angle2) * waveRadius,
+                    (float)System.Math.Sin(angle2) * waveRadius
+                );
+                
+                Color waveColor = IsCritical ? Color.Gold : Color.White;
+                waveColor.A = (byte)(100 * (1f - (progress - 0.8f) * 5f));
+                
+                DrawLine(spriteBatch, pixel, point1, point2, waveColor, 2f);
             }
         }
         

@@ -63,6 +63,11 @@ This file should be updated after each chat/development session to track progres
   - ✅ Damage numbers with visual feedback
   - ✅ Hit particles and effects
   - ✅ Perfect dodge mechanics with slow motion
+  - ✅ Extended attack range (150 units)
+  - ✅ Special visual effects for attacks:
+    - ✅ Multi-layered swing trails
+    - ✅ Energy particles on combos/crits
+    - ✅ Impact waves on final combo hits
 - ✅ Attack hitboxes with visual feedback
 - ✅ Enemy AI with states (Idle, Chase, Attack, Hurt)
 - ✅ Health and damage systems
@@ -71,6 +76,10 @@ This file should be updated after each chat/development session to track progres
   - ✅ Combo counter display
   - ✅ Player health bar
   - ✅ Pixelated damage numbers
+- ✅ Game Over system:
+  - ✅ Death animation with particles
+  - ✅ Game over screen with restart
+  - ✅ Press R to restart, ESC to exit
 
 ## Git Workflow
 - Always pull before starting work: `git pull`
@@ -157,14 +166,28 @@ git push
   - Hit particles spawn on impact
   - Enemies flash red when hurt
   - Screen shake scales with damage
+  - Attack range significantly extended (150 units)
+  - Special effects include trails, particles, and impact waves
 - Enemy AI uses state machine with hurt state for knockback
 - Camera follows player with lerp and screen shake offset
 - All entity collision uses Rectangle bounds
 - UI rendered with pixel art style numbers
+- Death system:
+  - Player spins and shrinks during death animation
+  - Red particles emit during death
+  - Game over screen with pixelated text
+  - Full game restart on R press
 
 ## Known Issues
 - Build may fail due to MonoGame content pipeline on Linux (can ignore for now)
 - Need to implement proper sprite loading system
 - Attack hit detection could be more precise with polygon collisions
+
+## Recent Session Updates (25/5/2025)
+- Implemented comprehensive combat system with game feel improvements
+- Added combo attacks, critical hits, and special visual effects
+- Created game over screen with restart functionality
+- Extended attack range and added particle effects
+- Improved enemy reactions with knockback and hitstun
 
 This file will be automatically read by Claude in new sessions when working in this project directory.

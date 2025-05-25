@@ -25,6 +25,9 @@ public class Player : Entity
     private float _perfectDodgeWindow = 0.15f;
     private bool _isPerfectDodgeActive = false;
     private float _perfectDodgeSlowMotion = 0.3f;
+    private float _deathTimer = 0f;
+    private float _deathDuration = 2f;
+    private bool _isDying = false;
     
     public float Health { get; private set; }
     public float MaxHealth { get; private set; }
@@ -40,7 +43,7 @@ public class Player : Entity
         MaxHealth = 100f;
         Health = MaxHealth;
         
-        _currentWeapon = new Weapon("Basic Sword", WeaponType.Sword, 20f, 2f, 80f);
+        _currentWeapon = new Weapon("Basic Sword", WeaponType.Sword, 20f, 2f, 150f);
         _currentAttack = new Attack();
         _combatSystem = new CombatSystem();
     }
@@ -86,6 +89,16 @@ public class Player : Entity
     public override void Update(GameTime gameTime)
     {
         float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        
+        if (_isDying)
+        {
+            _deathTimer += deltaTime;
+            if (_deathTimer >= _deathDuration)
+            {
+                IsActive = false;
+            }
+            return;
+        }
         
         if (_combatSystem.IsHitPaused)
         {
@@ -150,7 +163,8 @@ public class Player : Entity
         if (Health <= 0)
         {
             Health = 0;
-            IsActive = false;
+            _isDying = true;
+            _deathTimer = 0f;
         }
     }
     
@@ -172,12 +186,42 @@ public class Player : Entity
     public override void Draw(SpriteBatch spriteBatch)
     {
         Color tint = Color.White;
-        if (_isPerfectDodgeActive)
+        float scale = 1f;
+        float rotation = Rotation;
+        
+        if (_isDying)
+        {
+            float deathProgress = _deathTimer / _deathDuration;
+            scale = 1f - deathProgress * 0.5f;
+            rotation += deathProgress * MathHelper.TwoPi * 3;
+            tint = new Color(255, (int)(255 * (1f - deathProgress)), (int)(255 * (1f - deathProgress)));
+            
+            // Draw death particles
+            Random rand = new Random((int)(_deathTimer * 1000));
+            for (int i = 0; i < 5; i++)
+            {
+                float angle = (float)(rand.NextDouble() * MathHelper.TwoPi);
+                float distance = deathProgress * 100f * (float)rand.NextDouble();
+                Vector2 particlePos = Position + new Vector2(
+                    (float)Math.Cos(angle) * distance,
+                    (float)Math.Sin(angle) * distance
+                );
+                
+                Texture2D pixel = new Texture2D(spriteBatch.GraphicsDevice, 1, 1);
+                pixel.SetData(new[] { Color.White });
+                
+                Color particleColor = new Color(255, 0, 0, (int)(255 * (1f - deathProgress)));
+                spriteBatch.Draw(pixel, particlePos, null, particleColor, 0f, new Vector2(0.5f, 0.5f), 4f, SpriteEffects.None, 0f);
+                
+                pixel.Dispose();
+            }
+        }
+        else if (_isPerfectDodgeActive)
             tint = Color.Gold;
         else if (_isDodging)
             tint = new Color(150, 150, 150);
         
-        spriteBatch.Draw(_texture, Position, null, tint, Rotation, _origin, 1f, SpriteEffects.None, 0f);
+        spriteBatch.Draw(_texture, Position, null, tint, rotation, _origin, scale, SpriteEffects.None, 0f);
         
         if (_currentAttack.IsActive)
         {
